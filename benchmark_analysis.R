@@ -1,15 +1,17 @@
-###############################################################
+
+
+ #---->>> The Benchmark analysis against existing methods
 # BENCHMARK MODULE: WEFTSIM vs BASELINE DISCOVERY METHODS
 # Self-contained version
 # No external WEFTSIM function required
-###############################################################
+
+#---> Preparation
 
 library(data.table)
+library(reticulate)
 
 #--- pm4py
-###############################################################
 # 0. PYTHON / PM4PY SETUP (INDUCTIVE MINER)
-###############################################################
 
 library(reticulate)
 py_config()
@@ -32,16 +34,9 @@ tryCatch({
 }, error = function(e) {
   message("PM4Py still not available.")
 })
-###############################################################
-# BENCHMARK MODULE: WEFTSIM vs BASELINE DISCOVERY METHODS
-###############################################################
 
-library(data.table)
-library(reticulate)
 
-###############################################################
 # 0. PM4PY SETUP
-###############################################################
 
 pm4py_available <- FALSE
 
@@ -106,9 +101,9 @@ def run_inductive_from_dataframe(df):
 ")
 }
 
-###############################################################
+###-------------
 # 1. LOG PREPARATION
-###############################################################
+#----------------
 
 prepare_log <- function(file_path) {
   
@@ -190,9 +185,9 @@ prepare_log <- function(file_path) {
   return(log[, .(case_id, activity, timestamp, timestamp_order, original_order)])
 }
 
-###############################################################
+#... Algorithm 1 of the benchmark list
 # 2. DIRECTLY-FOLLOWS GRAPH
-###############################################################
+#--------------
 
 extract_log_edges <- function(log) {
   
@@ -209,9 +204,9 @@ extract_log_edges <- function(log) {
   return(edges)
 }
 
-###############################################################
+
 # 3. TRACE EXTRACTION
-###############################################################
+
 
 get_traces <- function(log) {
   x <- copy(log)
@@ -219,9 +214,9 @@ get_traces <- function(log) {
   x[, .(trace = list(activity)), by = case_id]
 }
 
-###############################################################
-# 4. WEFTSIM EDGE DISCOVERY
-###############################################################
+
+# 4. WEFTSIM EDGE DISCOVERY after identifying stable acitvities
+
 
 discover_WEFTSIM_edges <- function(log) {
   
@@ -298,9 +293,9 @@ discover_WEFTSIM_edges <- function(log) {
   return(unique(final_edges))
 }
 
-###############################################################
+
 # 5. BASELINE METHODS
-###############################################################
+#... Algorithm 2 of the benchmark list
 
 discover_frequency_DFG <- function(log, percentile = 0.80) {
   
@@ -364,9 +359,8 @@ discover_alpha_miner_like <- function(log) {
   return(unique(result))
 }
 
-###############################################################
-# 6. INDUCTIVE MINER
-###############################################################
+#... Algorithm 3 of the benchmark list
+# 6. INDUCTIVE MINER we take it from Pm4py adapt it to work with our datasets
 
 run_inductive_miner <- function(log) {
   
@@ -430,8 +424,7 @@ evaluate_inductive_miner <- function(result, dataset_name) {
   )
 }
 
-###############################################################
-# 7. METRICS
+#--- presenting the 7. METRICS
 ###############################################################
 
 edge_vector <- function(edge_df) {
@@ -504,9 +497,9 @@ compute_fscore <- function(fitness, precision) {
   2 * fitness * precision / (fitness + precision)
 }
 
-###############################################################
-# 8. MODEL EVALUATION
-###############################################################
+#-----
+# 8. Discovered Model evaluation
+#------
 
 evaluate_model <- function(log, model_edges_df, method, dataset, runtime_sec) {
   
@@ -533,9 +526,9 @@ evaluate_model <- function(log, model_edges_df, method, dataset, runtime_sec) {
   )
 }
 
-###############################################################
-# 9. RUN BENCHMARK
-###############################################################
+
+# 9. Preparing the fucntion of the benchmark analyses, basically running all algorithms and methods
+# together using the datasets
 
 run_benchmark <- function(log, dataset_name) {
   
@@ -549,7 +542,7 @@ run_benchmark <- function(log, dataset_name) {
   start <- Sys.time()
   heur_edges <- discover_heuristics_miner_like(log)
   runtime <- as.numeric(difftime(Sys.time(), start, units = "secs"))
-  results[[length(results) + 1]] <- evaluate_model(log, heur_edges, "Heuristics Miner-like", dataset_name, runtime)
+  results[[length(results) + 1]] <- evaluate_model(log, heur_edges, "Heuristics Miner", dataset_name, runtime)
   
   start <- Sys.time()
   freq_edges <- discover_frequency_DFG(log)
@@ -559,7 +552,7 @@ run_benchmark <- function(log, dataset_name) {
   start <- Sys.time()
   alpha_edges <- discover_alpha_miner_like(log)
   runtime <- as.numeric(difftime(Sys.time(), start, units = "secs"))
-  results[[length(results) + 1]] <- evaluate_model(log, alpha_edges, "Alpha Miner-like", dataset_name, runtime)
+  results[[length(results) + 1]] <- evaluate_model(log, alpha_edges, "Alpha Miner", dataset_name, runtime)
   
   if (pm4py_available) {
     message(">>> Running Inductive Miner <<<")
@@ -573,9 +566,8 @@ run_benchmark <- function(log, dataset_name) {
   rbindlist(results, fill = TRUE)
 }
 
-###############################################################
-# 10. RUN ALL DATASETS
-###############################################################
+
+# 10. Actual run to get the results of the benchmark analysis
 
 all_results <- list()
 
